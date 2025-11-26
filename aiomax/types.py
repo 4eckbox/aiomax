@@ -312,10 +312,56 @@ class ContactAttachment(Attachment):
         self.max_info: "User | None" = max_info
 
     @staticmethod
+    def _parse_vcard(vcard: str) -> tuple[Optional[str], Optional[str]]:
+        phone: "str | None" = None
+        full_name: "str | None" = None
+
+        for raw_line in vcard.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            # TEL;TYPE=cell:79651262241
+            if line.startswith("TEL") and ":" in line and phone is None:
+                phone = line.split(":", 1)[1].strip()
+                phone = phone if phone else None
+                continue
+
+            # FN:Igor
+            if line.startswith("FN:") and full_name is None:
+                full_name = line.split(":", 1)[1].strip()
+                full_name = full_name if full_name else None
+                continue
+
+        return phone, full_name
+
+    @staticmethod
     def from_json(data: dict) -> "ContactAttachment | None":
+        vcf_info: "str | None" = data["payload"].get("vcf_info") or ""
+        max_info: dict = data["payload"].get("max_info") or {}
+        contact_id: "int | None" = max_info.get("user_id")
+
+        parsed_phone: "str | None" = None
+        parsed_name: "str | None" = None
+        if vcf_info:
+            parsed_phone, parsed_name = ContactAttachment._parse_vcard(vcf_info)
+
+        name: "str | None" = parsed_name
+        if not name and max_info:
+            _get_max_info_strip = lambda key: (max_info.get(key) or "").strip()
+            first_name = _get_max_info_strip("first_name")
+            last_name = _get_max_info_strip("last_name")
+            full = " ".join(part for part in (first_name, last_name) if part)
+            if not full:
+                full = _get_max_info_strip("name")
+            name = full or None
+
         return ContactAttachment(
-            vcf_info=data.get("vcf_info"),
-            max_info=User.from_json(data.get("max_info")),
+            vcf_info=vcf_info if vcf_info else None,
+            vcf_phone=parsed_phone,
+            contact_id=contact_id,
+            name=name,
+            max_info=User.from_json(max_info),
         )
 
     def as_dict(self) -> dict:

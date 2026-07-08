@@ -9,6 +9,7 @@ import aiohttp
 
 from . import buttons, exceptions, fsm, utils
 from .cache import MessageCache
+from .client_ssl import create_ssl_context
 from .router import Router
 from .types import (
     Attachment,
@@ -1006,17 +1007,24 @@ class Bot(Router):
                 asyncio.create_task(i(payload))
 
     async def start_polling(
-        self, session: "aiohttp.ClientSession | None" = None
+        self,
+        session: "aiohttp.ClientSession | None" = None,
+        trust_russian_ca: bool = True,
     ):
         """
         Starts polling.
 
         :param session: Custom aiohttp client session
+        :param trust_russian_ca: Trust bundled Минцифры CA for MAX API.
+        Ignored when custom session is passed.
         """
         self.polling = True
 
         if not session:
-            session = aiohttp.ClientSession()
+            connector = aiohttp.TCPConnector(
+                ssl=create_ssl_context(trust_russian_ca)
+            )
+            session = aiohttp.ClientSession(connector=connector)
 
         async with session:
             self.session = session

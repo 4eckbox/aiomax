@@ -9,6 +9,7 @@ import aiohttp
 
 from . import buttons, exceptions, fsm, utils
 from .cache import MessageCache
+from .client_ssl import create_ssl_context
 from .router import Router
 from .types import (
     Attachment,
@@ -30,6 +31,8 @@ from .types import (
     UserMembershipPayload,
     VideoAttachment,
 )
+
+API_BASE_URL = "https://platform-api2.max.ru"
 
 bot_logger = logging.getLogger("aiomax.bot")
 
@@ -188,7 +191,7 @@ class Bot(Router):
         """
         Returns info about the bot.
         """
-        response = await self.get("https://platform-api.max.ru/me")
+        response = await self.get(f"{API_BASE_URL}/me")
         user = await response.json()
         user = User.from_json(user)
 
@@ -231,7 +234,7 @@ class Bot(Router):
         payload = {k: v for k, v in payload.items() if v}
 
         response = await self.patch(
-            "https://platform-api.max.ru/me", json=payload
+            f"{API_BASE_URL}/me", json=payload
         )
         data = await response.json()
 
@@ -262,7 +265,7 @@ class Bot(Router):
             }
             params = {k: v for k, v in params.items() if v}
             response = await self.get(
-                "https://platform-api.max.ru/chats", params=params
+                f"{API_BASE_URL}/chats", params=params
             )
             data = await response.json()
 
@@ -279,7 +282,7 @@ class Bot(Router):
 
         :param link: Public chat link or username.
         """
-        response = await self.get(f"https://platform-api.max.ru/chats/{link}")
+        response = await self.get(f"{API_BASE_URL}/chats/{link}")
         json = await response.json()
 
         return Chat.from_json(json)
@@ -291,7 +294,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.get(
-            f"https://platform-api.max.ru/chats/{chat_id}"
+            f"{API_BASE_URL}/chats/{chat_id}"
         )
         json = await response.json()
 
@@ -305,7 +308,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.get(
-            f"https://platform-api.max.ru/chats/{chat_id}/pin"
+            f"{API_BASE_URL}/chats/{chat_id}/pin"
         )
         json = await response.json()
 
@@ -328,7 +331,7 @@ class Bot(Router):
         payload = {k: v for k, v in payload.items() if v}
 
         response = await self.put(
-            f"https://platform-api.max.ru/chats/{chat_id}/pin", json=payload
+            f"{API_BASE_URL}/chats/{chat_id}/pin", json=payload
         )
         return await response.json()
 
@@ -339,7 +342,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.delete(
-            f"https://platform-api.max.ru/chats/{chat_id}/pin"
+            f"{API_BASE_URL}/chats/{chat_id}/pin"
         )
 
         return await response.json()
@@ -351,7 +354,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.get(
-            f"https://platform-api.max.ru/chats/{chat_id}/members/me"
+            f"{API_BASE_URL}/chats/{chat_id}/members/me"
         )
         json = await response.json()
 
@@ -364,7 +367,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.delete(
-            f"https://platform-api.max.ru/chats/{chat_id}/members/me"
+            f"{API_BASE_URL}/chats/{chat_id}/members/me"
         )
 
         return await response.json()
@@ -376,7 +379,7 @@ class Bot(Router):
         :param chat_id: The ID of the chat.
         """
         response = await self.get(
-            f"https://platform-api.max.ru/chats/{chat_id}/members/admins"
+            f"{API_BASE_URL}/chats/{chat_id}/members/admins"
         )
 
         users = [User.from_json(i) for i in (await response.json())["members"]]
@@ -394,7 +397,7 @@ class Bot(Router):
             "user_ids": user_ids if isinstance(user_ids, list) else [user_ids]
         }
         response = await self.get(
-            f"https://platform-api.max.ru/chats/{chat_id}/members",
+            f"{API_BASE_URL}/chats/{chat_id}/members",
             params=params,
         )
 
@@ -423,7 +426,7 @@ class Bot(Router):
             }
             params = {k: v for k, v in params.items() if v}
             response = await self.get(
-                f"https://platform-api.max.ru/chats/{chat_id}/members",
+                f"{API_BASE_URL}/chats/{chat_id}/members",
                 params=params,
             )
             data = await response.json()
@@ -444,7 +447,7 @@ class Bot(Router):
         """
 
         response = await self.post(
-            f"https://platform-api.max.ru/chats/{chat_id}/members",
+            f"{API_BASE_URL}/chats/{chat_id}/members",
             json={"user_ids": users},
         )
 
@@ -468,7 +471,7 @@ class Bot(Router):
             params["block"] = str(block)
 
         response = await self.delete(
-            f"https://platform-api.max.ru/chats/{chat_id}/members/",
+            f"{API_BASE_URL}/chats/{chat_id}/members/",
             params=params,
         )
 
@@ -502,7 +505,7 @@ class Bot(Router):
         payload = {k: v for k, v in payload.items() if v}
 
         response = await self.patch(
-            f"https://platform-api.max.ru/chats/{chat_id}", json=payload
+            f"{API_BASE_URL}/chats/{chat_id}", json=payload
         )
         json = await response.json()
 
@@ -518,7 +521,7 @@ class Bot(Router):
         """
 
         response = await self.post(
-            f"https://platform-api.max.ru/chats/{chat_id}/actions",
+            f"{API_BASE_URL}/chats/{chat_id}/actions",
             json={"action": action},
         )
 
@@ -542,7 +545,7 @@ class Bot(Router):
         form.add_field(field_name, data)
 
         url_resp = await self.post(
-            "https://platform-api.max.ru/uploads", params={"type": type}
+            f"{API_BASE_URL}/uploads", params={"type": type}
         )
         url_json = await url_resp.json()
         token_resp = await self.session.post(url_json["url"], data=form)
@@ -663,7 +666,7 @@ class Bot(Router):
 
         try:
             response = await self.post(
-                "https://platform-api.max.ru/messages",
+                f"{API_BASE_URL}/messages",
                 params=params,
                 json=body,
             )
@@ -722,7 +725,7 @@ class Bot(Router):
 
         try:
             response = await self.put(
-                "https://platform-api.max.ru/messages",
+                f"{API_BASE_URL}/messages",
                 params=params,
                 json=body,
             )
@@ -755,7 +758,7 @@ class Bot(Router):
         params = {"message_id": message_id}
 
         response = await self.delete(
-            "https://platform-api.max.ru/messages", params=params
+            f"{API_BASE_URL}/messages", params=params
         )
 
         json = await response.json()
@@ -770,7 +773,7 @@ class Bot(Router):
         """
         try:
             response = await self.get(
-                f"https://platform-api.max.ru/messages/{message_id}"
+                f"{API_BASE_URL}/messages/{message_id}"
             )
 
             data = await response.json()
@@ -789,7 +792,7 @@ class Bot(Router):
         payload = {k: v for k, v in payload.items() if v}
 
         response = await self.get(
-            "https://platform-api.max.ru/updates", params=payload
+            f"{API_BASE_URL}/updates", params=payload
         )
         json = await response.json()
         if "marker" in json:
@@ -1004,17 +1007,24 @@ class Bot(Router):
                 asyncio.create_task(i(payload))
 
     async def start_polling(
-        self, session: "aiohttp.ClientSession | None" = None
+        self,
+        session: "aiohttp.ClientSession | None" = None,
+        trust_russian_ca: bool = True,
     ):
         """
         Starts polling.
 
         :param session: Custom aiohttp client session
+        :param trust_russian_ca: Trust bundled Минцифры CA for MAX API.
+        Ignored when custom session is passed.
         """
         self.polling = True
 
         if not session:
-            session = aiohttp.ClientSession()
+            connector = aiohttp.TCPConnector(
+                ssl=create_ssl_context(trust_russian_ca)
+            )
+            session = aiohttp.ClientSession(connector=connector)
 
         async with session:
             self.session = session

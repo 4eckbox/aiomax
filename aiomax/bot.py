@@ -93,7 +93,6 @@ class Bot(Router):
             raise Exception("Session is not initialized")
 
         params = kwargs.get("params", {})
-        params["access_token"] = self.access_token
         if "params" in kwargs:
             del kwargs["params"]
 
@@ -113,7 +112,6 @@ class Bot(Router):
             raise Exception("Session is not initialized")
 
         params = kwargs.get("params", {})
-        params["access_token"] = self.access_token
         if "params" in kwargs:
             del kwargs["params"]
 
@@ -133,7 +131,6 @@ class Bot(Router):
             raise Exception("Session is not initialized")
 
         params = kwargs.get("params", {})
-        params["access_token"] = self.access_token
         if "params" in kwargs:
             del kwargs["params"]
 
@@ -153,7 +150,6 @@ class Bot(Router):
             raise Exception("Session is not initialized")
 
         params = kwargs.get("params", {})
-        params["access_token"] = self.access_token
         if "params" in kwargs:
             del kwargs["params"]
 
@@ -173,7 +169,6 @@ class Bot(Router):
             raise Exception("Session is not initialized")
 
         params = kwargs.get("params", {})
-        params["access_token"] = self.access_token
         if "params" in kwargs:
             del kwargs["params"]
 
@@ -541,7 +536,7 @@ class Bot(Router):
             async with aiofiles.open(data, "rb") as f:
                 data = await f.read()
 
-        form = aiohttp.FormData()
+        form = aiohttp.FormData(quote_fields=False)
         form.add_field(field_name, data)
 
         url_resp = await self.post(

@@ -302,7 +302,7 @@ class ContactAttachment(Attachment):
         :param vcf_phone: Contact's phone number.
             Only used when sending contacts
         :param max_info: User object if contact is a user.
-            Only used when recieving contacts, use `contact_id` instead
+            Only used when receiving contacts
         """
         super().__init__("contact")
         self.name: "str | None" = name
@@ -337,31 +337,17 @@ class ContactAttachment(Attachment):
 
     @staticmethod
     def from_json(data: dict) -> "ContactAttachment | None":
-        vcf_info: "str | None" = data["payload"].get("vcf_info") or ""
-        max_info: dict = data["payload"].get("max_info") or {}
-        contact_id: "int | None" = max_info.get("user_id")
+        if not data:
+            return None
 
-        parsed_phone: "str | None" = None
-        parsed_name: "str | None" = None
-        if vcf_info:
-            parsed_phone, parsed_name = ContactAttachment._parse_vcard(vcf_info)
-
-        name: "str | None" = parsed_name
-        if not name and max_info:
-            _get_max_info_strip = lambda key: (max_info.get(key) or "").strip()
-            first_name = _get_max_info_strip("first_name")
-            last_name = _get_max_info_strip("last_name")
-            full = " ".join(part for part in (first_name, last_name) if part)
-            if not full:
-                full = _get_max_info_strip("name")
-            name = full or None
+        payload = data.get("payload") or {}
 
         return ContactAttachment(
-            vcf_info=vcf_info if vcf_info else None,
-            vcf_phone=parsed_phone,
-            contact_id=contact_id,
-            name=name,
-            max_info=User.from_json(max_info),
+            name=payload.get("name"),
+            contact_id=payload.get("contact_id"),
+            vcf_info=payload.get("vcf_info"),
+            vcf_phone=payload.get("vcf_phone"),
+            max_info=User.from_json(payload.get("max_info")),
         )
 
     def as_dict(self) -> dict:

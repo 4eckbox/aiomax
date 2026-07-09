@@ -1,6 +1,7 @@
 from typing import Callable, Literal, Optional
 
 from . import buttons, exceptions, utils
+from .api import build_api_url
 
 
 class BotCommand:
@@ -1268,7 +1269,7 @@ class Callback:
             )
 
         out = await self.bot.post(
-            "https://botapi.max.ru/answers",
+            build_api_url("/answers"),
             params={"callback_id": self.callback_id},
             json=body,
         )

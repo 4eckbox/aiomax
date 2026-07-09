@@ -8,8 +8,9 @@ import aiofiles
 import aiohttp
 
 from . import buttons, exceptions, fsm, utils
+from .api import API_BASE_URL
 from .cache import MessageCache
-from .client_ssl import create_ssl_context
+from .client_ssl import create_client_session
 from .router import Router
 from .types import (
     Attachment,
@@ -31,8 +32,6 @@ from .types import (
     UserMembershipPayload,
     VideoAttachment,
 )
-
-API_BASE_URL = "https://platform-api2.max.ru"
 
 bot_logger = logging.getLogger("aiomax.bot")
 
@@ -85,18 +84,40 @@ class Bot(Router):
 
         self.storage = fsm.FSMStorage()
 
+    def create_session(
+        self, *, trust_russian_ca: bool = True, **kwargs
+    ) -> aiohttp.ClientSession:
+        return create_client_session(
+            trust_russian_ca=trust_russian_ca, **kwargs
+        )
+
+    def ensure_session(
+        self, *, trust_russian_ca: bool = True, **kwargs
+    ) -> aiohttp.ClientSession:
+        if self.session is None or getattr(self.session, "closed", False):
+            self.session = self.create_session(
+                trust_russian_ca=trust_russian_ca, **kwargs
+            )
+        return self.session
+
+    async def close_session(self):
+        if self.session is not None and not getattr(
+            self.session, "closed", False
+        ):
+            await self.session.close()
+        self.session = None
+
     async def get(self, *args, **kwargs):
         """
         Sends a GET request to the API.
         """
-        if self.session is None:
-            raise Exception("Session is not initialized")
+        session = self.ensure_session()
 
         params = kwargs.get("params", {})
         if "params" in kwargs:
             del kwargs["params"]
 
-        response = await self.session.get(*args, params=params, **kwargs)
+        response = await session.get(*args, params=params, **kwargs)
 
         exception = await utils.get_exception(response)
 
@@ -108,14 +129,13 @@ class Bot(Router):
         """
         Sends a POST request to the API.
         """
-        if self.session is None:
-            raise Exception("Session is not initialized")
+        session = self.ensure_session()
 
         params = kwargs.get("params", {})
         if "params" in kwargs:
             del kwargs["params"]
 
-        response = await self.session.post(*args, params=params, **kwargs)
+        response = await session.post(*args, params=params, **kwargs)
 
         exception = await utils.get_exception(response)
 
@@ -127,14 +147,13 @@ class Bot(Router):
         """
         Sends a PATCH request to the API.
         """
-        if self.session is None:
-            raise Exception("Session is not initialized")
+        session = self.ensure_session()
 
         params = kwargs.get("params", {})
         if "params" in kwargs:
             del kwargs["params"]
 
-        response = await self.session.patch(*args, params=params, **kwargs)
+        response = await session.patch(*args, params=params, **kwargs)
 
         exception = await utils.get_exception(response)
 
@@ -146,14 +165,13 @@ class Bot(Router):
         """
         Sends a PUT request to the API.
         """
-        if self.session is None:
-            raise Exception("Session is not initialized")
+        session = self.ensure_session()
 
         params = kwargs.get("params", {})
         if "params" in kwargs:
             del kwargs["params"]
 
-        response = await self.session.put(*args, params=params, **kwargs)
+        response = await session.put(*args, params=params, **kwargs)
 
         exception = await utils.get_exception(response)
 
@@ -165,14 +183,13 @@ class Bot(Router):
         """
         Sends a DELETE request to the API.
         """
-        if self.session is None:
-            raise Exception("Session is not initialized")
+        session = self.ensure_session()
 
         params = kwargs.get("params", {})
         if "params" in kwargs:
             del kwargs["params"]
 
-        response = await self.session.delete(*args, params=params, **kwargs)
+        response = await session.delete(*args, params=params, **kwargs)
 
         exception = await utils.get_exception(response)
 
@@ -795,6 +812,45 @@ class Bot(Router):
 
         return json
 
+    async def get_subscriptions(self) -> dict:
+        """
+        Get webhook subscriptions for the bot.
+        """
+        response = await self.get(f"{API_BASE_URL}/subscriptions")
+        return await response.json()
+
+    async def subscribe_webhook(
+        self,
+        url: str,
+        update_types: "list[str] | None" = None,
+        secret: "str | None" = None,
+    ) -> dict:
+        """
+        Subscribe the bot to webhook updates.
+
+        :param url: Webhook URL.
+        :param update_types: Update types to receive.
+        :param secret: Optional webhook secret.
+        """
+        payload = {"url": url, "update_types": update_types, "secret": secret}
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        response = await self.post(
+            f"{API_BASE_URL}/subscriptions", json=payload
+        )
+        return await response.json()
+
+    async def unsubscribe_webhook(self, url: str) -> dict:
+        """
+        Unsubscribe the bot from webhook updates for the URL.
+
+        :param url: Webhook URL to remove from subscriptions.
+        """
+        response = await self.delete(
+            f"{API_BASE_URL}/subscriptions", params={"url": url}
+        )
+        return await response.json()
+
     async def handle_update(self, update: dict):
         """
         Handles an update.
@@ -1015,11 +1071,8 @@ class Bot(Router):
         """
         self.polling = True
 
-        if not session:
-            connector = aiohttp.TCPConnector(
-                ssl=create_ssl_context(trust_russian_ca)
-            )
-            session = aiohttp.ClientSession(connector=connector)
+        if session is None:
+            session = self.create_session(trust_russian_ca=trust_russian_ca)
 
         async with session:
             self.session = session

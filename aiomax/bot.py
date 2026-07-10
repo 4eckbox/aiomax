@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 from collections.abc import AsyncIterator
 from typing import IO, BinaryIO, Literal
 
@@ -34,6 +35,7 @@ from .types import (
 )
 
 bot_logger = logging.getLogger("aiomax.bot")
+_WEBHOOK_SECRET_PATTERN = re.compile(r"^[A-Za-z0-9-]{5,256}$")
 
 
 class Bot(Router):
@@ -832,6 +834,15 @@ class Bot(Router):
         :param update_types: Update types to receive.
         :param secret: Optional webhook secret.
         """
+        if (
+            secret is not None
+            and _WEBHOOK_SECRET_PATTERN.fullmatch(secret) is None
+        ):
+            raise ValueError(
+                "Webhook secret must be 5-256 characters long and contain "
+                "only A-Z, a-z, 0-9, and hyphen"
+            )
+
         payload = {"url": url, "update_types": update_types, "secret": secret}
         payload = {k: v for k, v in payload.items() if v is not None}
 
